@@ -12,9 +12,13 @@ services:
     user: "1000:1000"
     volumes:
       - .:/var/www
+    environment:
+      FACT_CHECK_API_URL: http://agent-system:8080
     depends_on:
       db:
         condition: service_healthy
+      agent-system:
+        condition: service_started
     networks:
       - laravel
 
@@ -38,6 +42,13 @@ services:
       - .:/var/www
     profiles:
       - tools
+    networks:
+      - laravel
+
+  agent-system:
+    image: agentsystem-agent-system:latest
+    ports:
+      - "8080:8080"
     networks:
       - laravel
 
