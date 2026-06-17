@@ -407,6 +407,8 @@ export function initFactCheckChat() {
 
     const checkUrl = root.dataset.checkUrl;
     const form = document.getElementById('chat-form');
+    const categorySelect = document.getElementById('chat-category');
+    const categoryButtons = Array.from(document.querySelectorAll('[data-category-option]'));
     const input = document.getElementById('chat-input');
     const messagesEl = document.getElementById('chat-messages');
     const submitBtn = document.getElementById('chat-submit');
@@ -419,8 +421,21 @@ export function initFactCheckChat() {
         window.axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
     }
 
+    function updateCategoryButtons(selectedCategory) {
+        categoryButtons.forEach((button) => {
+            const isActive = button.dataset.value === selectedCategory;
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            button.className = isActive
+                ? 'rounded-full bg-slate-800 px-3 py-1.5 text-[11px] font-medium text-white shadow-sm shadow-black/20 transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-50'
+                : 'rounded-full px-3 py-1.5 text-[11px] font-medium text-slate-400 transition hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-50';
+        });
+    }
+
     function setLoading(loading) {
         submitBtn.disabled = loading;
+        categoryButtons.forEach((button) => {
+            button.disabled = loading;
+        });
         input.disabled = loading;
         sendIcon.classList.toggle('hidden', loading);
         loadingIcon.classList.toggle('hidden', !loading);
@@ -434,10 +449,21 @@ export function initFactCheckChat() {
         welcomeEl?.remove();
     }
 
+    categoryButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const selectedCategory = button.dataset.value;
+            categorySelect.value = selectedCategory;
+            updateCategoryButtons(selectedCategory);
+        });
+    });
+
+    updateCategoryButtons(categorySelect.value);
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
         const fact = input.value.trim();
+        const category = categorySelect.value;
         if (!fact) return;
 
         removeWelcome();
@@ -451,7 +477,7 @@ export function initFactCheckChat() {
         setLoading(true);
 
         try {
-            const { data } = await window.axios.post(checkUrl, { fact });
+            const { data } = await window.axios.post(checkUrl, { fact, category });
             const rendered = renderAgentResponse(data);
 
             typing.remove();

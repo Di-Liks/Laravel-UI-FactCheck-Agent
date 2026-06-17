@@ -23,7 +23,10 @@ class FactCheckTest extends TestCase
             ]),
         ]);
 
-        $response = $this->postJson('/check', ['fact' => 'Земля плоская']);
+        $response = $this->postJson('/check', [
+            'fact' => 'Земля плоская',
+            'category' => 'SPORT',
+        ]);
 
         $response->assertOk()
             ->assertJsonPath('originalClaim', 'Земля плоская')
@@ -31,15 +34,30 @@ class FactCheckTest extends TestCase
 
         Http::assertSent(function ($request) {
             return $request->url() === 'http://agent-system:8080/check'
-                && $request['fact'] === 'Земля плоская';
+                && $request['fact'] === 'Земля плоская'
+                && $request['category'] === 'SPORT';
         });
     }
 
     public function test_check_validates_fact(): void
     {
-        $response = $this->postJson('/check', ['fact' => '']);
+        $response = $this->postJson('/check', [
+            'fact' => '',
+            'category' => 'SPORT',
+        ]);
 
         $response->assertUnprocessable()
             ->assertJsonValidationErrors('fact');
+    }
+
+    public function test_check_validates_category(): void
+    {
+        $response = $this->postJson('/check', [
+            'fact' => 'Земля плоская',
+            'category' => 'SCIENCE',
+        ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors('category');
     }
 }

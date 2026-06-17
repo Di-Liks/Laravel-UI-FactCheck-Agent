@@ -51,32 +51,71 @@
             </div>
 
             <form id="chat-form" class="shrink-0 border-t border-slate-800 p-4 sm:p-5">
-                <div class="flex items-end gap-2 sm:gap-3">
-                    <label for="chat-input" class="sr-only">Утверждение для проверки</label>
-                    <textarea
-                        id="chat-input"
-                        name="fact"
-                        rows="2"
-                        placeholder="Введите утверждение для проверки…"
-                        class="min-h-[52px] max-h-32 flex-1 resize-none rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:opacity-50"
-                        required
-                        oninvalid="this.setCustomValidity('Введите интересующий факт')"
-                        oninput="this.setCustomValidity('')"
-                    ></textarea>
-                    <button
-                        type="submit"
-                        id="chat-submit"
-                        class="flex h-[66px] w-[66px] shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:cursor-not-allowed disabled:opacity-50"
-                        aria-label="Отправить"
-                    >
-                        <svg id="send-icon" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-                        </svg>
-                        <svg id="loading-icon" class="hidden h-5 w-5 shrink-0 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    </button>
+                <div class="space-y-3">
+                    <div>
+                        <input type="hidden" id="chat-category" name="category" value="SPORT">
+                        <div
+                            class="inline-flex items-center gap-1 rounded-full border border-slate-700/80 bg-slate-950/80 p-1 shadow-sm shadow-black/20"
+                            role="group"
+                            aria-label="Категория проверки"
+                        >
+                            <button
+                                type="button"
+                                data-category-option
+                                data-value="MEDIA"
+                                aria-pressed="false"
+                                class="rounded-full px-3 py-1.5 text-[11px] font-medium text-slate-400 transition hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                Медиа
+                            </button>
+                            <button
+                                type="button"
+                                data-category-option
+                                data-value="SPORT"
+                                aria-pressed="true"
+                                class="rounded-full bg-slate-800 px-3 py-1.5 text-[11px] font-medium text-white shadow-sm shadow-black/20 transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                Спорт
+                            </button>
+                            <button
+                                type="button"
+                                data-category-option
+                                data-value="POLITICS"
+                                aria-pressed="false"
+                                class="rounded-full px-3 py-1.5 text-[11px] font-medium text-slate-400 transition hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                Политика
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-end gap-2 sm:gap-3">
+                        <label for="chat-input" class="sr-only">Утверждение для проверки</label>
+                        <textarea
+                            id="chat-input"
+                            name="fact"
+                            rows="2"
+                            placeholder="Введите утверждение для проверки…"
+                            class="min-h-[52px] max-h-32 flex-1 resize-none rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:opacity-50"
+                            required
+                            oninvalid="this.setCustomValidity('Введите интересующий факт')"
+                            oninput="this.setCustomValidity('')"
+                        ></textarea>
+                        <button
+                            type="submit"
+                            id="chat-submit"
+                            class="flex h-[66px] w-[66px] shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label="Отправить"
+                        >
+                            <svg id="send-icon" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                            </svg>
+                            <svg id="loading-icon" class="hidden h-5 w-5 shrink-0 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>

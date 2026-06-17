@@ -19,6 +19,7 @@ class FactCheckController extends Controller
     {
         $validated = $request->validate([
             'fact' => ['required', 'string', 'min:1', 'max:10000'],
+            'category' => ['required', 'string', 'in:MEDIA,SPORT,POLITICS'],
         ]);
 
         $url = config('factcheck.api_url').'/check';
@@ -26,7 +27,10 @@ class FactCheckController extends Controller
         try {
             $response = Http::timeout(300)
                 ->acceptJson()
-                ->post($url, ['fact' => $validated['fact']]);
+                ->post($url, [
+                    'fact' => $validated['fact'],
+                    'category' => $validated['category'],
+                ]);
         } catch (ConnectionException) {
             return response()->json([
                 'message' => 'Не удалось подключиться к сервису проверки фактов.',
