@@ -46,27 +46,74 @@ const SUMMARY_VERDICT_BG = {
     PARTIALLY_TRUE: 'bg-amber-400/25 border-amber-400/50',
 };
 
-const SUMMARY_VERDICT_LABELS = {
-    FALSE: 'Ложь',
-    TRUE: 'Правда',
-    PARTIALLY_TRUE: 'Частично правда',
+const AGENT_BUBBLE_STYLES = {
+    TRUE: 'border-emerald-500/40 bg-emerald-500/12',
+    FALSE: 'border-red-500/40 bg-red-500/12',
+    PARTIALLY_TRUE: 'border-amber-400/40 bg-amber-400/12',
+    SUPPORTED: 'border-emerald-500/40 bg-emerald-500/12',
+    REFUTED: 'border-red-500/40 bg-red-500/12',
+    PARTIALLY_SUPPORTED: 'border-amber-400/40 bg-amber-400/12',
+    CONFLICTING: 'border-orange-400/40 bg-orange-500/12',
+    NOT_ENOUGH_INFO: 'border-slate-600/80 bg-slate-800',
+    IRRELEVANT: 'border-slate-600/80 bg-slate-800',
 };
 
 function parseSummatorResponse(text) {
     if (!text) {
-        return { verdict: null, confidence: null, claim: '', analysis: '' };
+        return { verdict: null, confidence: null, claim: '', facts: '', analysis: '', factCheckText: '' };
     }
 
     const verdictMatch = text.match(/^Вердикт:\s*(.+)$/m);
     const confidenceMatch = text.match(/^Уверенность:\s*(.+)$/m);
-    const claimMatch = text.match(/Проверяемое утверждение:\s*\n([\s\S]*?)(?=\n\n|$)/);
-    const analysisMatch = text.match(/Сводный анализ:\s*\n([\s\S]*?)(?=\n\n---|\n*$)/);
+    const sections = {
+        claim: [],
+        facts: [],
+        analysis: [],
+        factCheckText: [],
+    };
+
+    let currentSection = null;
+
+    for (const line of text.split(/\r?\n/)) {
+        const trimmed = line.trim();
+
+        if (/^Проверяемое утверждение:?$/i.test(trimmed)) {
+            currentSection = 'claim';
+            continue;
+        }
+
+        if (/^Разобранные факты:?$/i.test(trimmed)) {
+            currentSection = 'facts';
+            continue;
+        }
+
+        if (/^Сводный анализ:?$/i.test(trimmed)) {
+            currentSection = 'analysis';
+            continue;
+        }
+
+        if (/^Проверка фактов:?$/i.test(trimmed)) {
+            currentSection = 'factCheckText';
+            continue;
+        }
+
+        if (/^-{3,}$/.test(trimmed)) {
+            currentSection = null;
+            continue;
+        }
+
+        if (currentSection) {
+            sections[currentSection].push(line);
+        }
+    }
 
     return {
         verdict: verdictMatch?.[1]?.trim() ?? null,
         confidence: confidenceMatch?.[1]?.trim() ?? null,
-        claim: claimMatch?.[1]?.trim() ?? '',
-        analysis: analysisMatch?.[1]?.trim() ?? '',
+        claim: sections.claim.join('\n').trim(),
+        facts: sections.facts.join('\n').trim(),
+        analysis: sections.analysis.join('\n').trim(),
+        factCheckText: sections.factCheckText.join('\n').trim(),
     };
 }
 
@@ -85,6 +132,80 @@ function firstParagraph(text) {
 function getSummaryVerdictStyle(verdict) {
     const key = verdict?.toUpperCase?.() ?? '';
     return SUMMARY_VERDICT_BG[key] ?? 'bg-slate-800/80 border-slate-600/50';
+}
+
+function resolveAgentVerdict(parsed, verificatorResponses) {
+    const summaryVerdict = parsed.verdict?.toUpperCase?.();
+    if (summaryVerdict) {
+        return summaryVerdict;
+    }
+
+    const verdicts = (verificatorResponses ?? [])
+        .map((item) => item.verdict?.toUpperCase?.())
+        .filter(Boolean);
+
+    if (!verdicts.length) {
+        return '';
+    }
+
+    if (verdicts.includes('PARTIALLY_SUPPORTED')) {
+        return 'PARTIALLY_SUPPORTED';
+    }
+
+    if (verdicts.includes('REFUTED') && verdicts.includes('SUPPORTED')) {
+        return 'PARTIALLY_SUPPORTED';
+    }
+
+    return verdicts[0];
+}
+
+function getAgentBubbleStyle(verdict) {
+    return AGENT_BUBBLE_STYLES[verdict] ?? 'border-slate-700/80 bg-slate-800';
+}
+
+function extractEvidenceQuotes(verificatorResponses) {
+    const quotes = [];
+
+    for (const item of verificatorResponses ?? []) {
+        const quote = item.evidenceQuote?.trim();
+        if (!quote || quotes.includes(quote)) {
+            continue;
+        }
+
+        quotes.push(quote);
+    }
+
+    return quotes;
+}
+
+function renderSummaryQuotes(verificatorResponses, fallbackText) {
+    const items = extractEvidenceQuotes(verificatorResponses);
+
+    if (!items.length && fallbackText) {
+        items.push(fallbackText);
+    }
+
+    if (!items.length) {
+        return '';
+    }
+
+    if (items.length === 1) {
+        return `
+            <blockquote class="border-l-2 border-white/30 pl-3 text-sm leading-relaxed italic text-slate-100">
+                ${escapeHtml(items[0])}
+            </blockquote>
+        `;
+    }
+
+    return `
+        <div class="space-y-2">
+            ${items.map((item) => `
+                <blockquote class="border-l-2 border-white/30 pl-3 text-sm leading-relaxed italic text-slate-100">
+                    ${escapeHtml(item)}
+                </blockquote>
+            `).join('')}
+        </div>
+    `;
 }
 
 function renderVerificatorBrief(item) {
@@ -159,9 +280,8 @@ function renderAgentResponse(data) {
     const parsed = parseSummatorResponse(data.summatorResponse);
     const claim = parsed.claim || data.originalClaim || '';
     const briefAnalysis = truncateText(firstParagraph(parsed.analysis));
-    const verdictKey = parsed.verdict?.toUpperCase?.() ?? '';
-    const verdictLabel = SUMMARY_VERDICT_LABELS[verdictKey] ?? parsed.verdict ?? 'Результат';
     const verdictStyle = getSummaryVerdictStyle(parsed.verdict);
+    const summaryFallback = parsed.facts || briefAnalysis || claim;
 
     const confidenceBlock = parsed.confidence
         ? `<span class="shrink-0 text-sm font-medium text-slate-200">Уверенность: ${escapeHtml(parsed.confidence)}</span>`
@@ -173,47 +293,78 @@ function renderAgentResponse(data) {
 
     const factCards = visibleFacts.map(renderVerificatorBrief).join('');
 
-    const expandedSummary = `
-        <div class="mt-3 space-y-3 border-t border-white/10 pt-3">
-            ${parsed.analysis ? `
-                <div class="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">
+    const detailedAnalysisBlock = parsed.analysis
+        ? `
+            <section class="space-y-2">
+                <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Сводный анализ</h3>
+                <div class="whitespace-pre-wrap text-sm leading-relaxed text-slate-200">
                     ${escapeHtml(parsed.analysis)}
                 </div>
-            ` : ''}
-            ${data.summatorResponse && !parsed.analysis ? `
-                <div class="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">
-                    ${escapeHtml(data.summatorResponse)}
-                </div>
-            ` : ''}
-            ${renderDecomposerSection(data.decomposerResponses)}
-        </div>
-    `;
+            </section>
+        `
+        : '';
 
-    const summaryBlock = data.summatorResponse || claim
+    const detailedFactCheckBlock = factCards
         ? `
-            <div class="rounded-xl border p-4 ${verdictStyle}">
-                <div class="mb-3 flex items-start justify-between gap-3">
-                    <p class="text-sm font-semibold text-white">Вердикт: ${escapeHtml(verdictLabel)}</p>
-                    ${confidenceBlock}
-                </div>
-                ${claim ? `<p class="mb-2 text-sm font-medium text-slate-100">${escapeHtml(claim)}</p>` : ''}
-                ${briefAnalysis ? `<p class="text-sm leading-relaxed text-slate-200">${escapeHtml(briefAnalysis)}</p>` : ''}
-                <details class="mt-3">
-                    <summary class="cursor-pointer text-xs font-medium text-indigo-300 hover:text-indigo-200">Развернуть</summary>
-                    ${expandedSummary}
-                </details>
+            <section class="space-y-2">
+                <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Проверка фактов</h3>
+                <div class="space-y-2">${factCards}</div>
+            </section>
+        `
+        : parsed.factCheckText
+            ? `
+                <section class="space-y-2">
+                    <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Проверка фактов</h3>
+                    <div class="whitespace-pre-wrap text-sm leading-relaxed text-slate-200">
+                        ${escapeHtml(parsed.factCheckText)}
+                    </div>
+                </section>
+            `
+            : '';
+
+    const expandedSummary = detailedAnalysisBlock || detailedFactCheckBlock
+        ? `
+            <div class="mt-3 space-y-4 border-t border-white/10 pt-3">
+                ${detailedAnalysisBlock}
+                ${detailedFactCheckBlock}
             </div>
         `
         : '';
 
-    const verificationBlock = factCards
-        ? `<div class="mt-3 space-y-2"><h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Подтверждённые факты</h3>${factCards}</div>`
+    const summaryBlock = data.summatorResponse || claim || factCards
+        ? `
+            <div class="rounded-xl border p-4 ${verdictStyle}">
+                <div class="mb-3 flex items-start justify-between gap-3">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-300">Краткий ответ</p>
+                    ${confidenceBlock}
+                </div>
+                ${renderSummaryQuotes(data.verificatorResponses, summaryFallback)}
+                ${expandedSummary ? `
+                    <details class="mt-3">
+                        <summary class="cursor-pointer text-xs font-medium text-indigo-300 hover:text-indigo-200">Подробный ответ</summary>
+                        ${expandedSummary}
+                    </details>
+                ` : ''}
+            </div>
+        `
         : '';
 
-    return `${summaryBlock}${verificationBlock}`;
+    const verificationOnlyBlock = !summaryBlock && factCards
+        ? `
+            <div class="space-y-2">
+                <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Проверка фактов</h3>
+                ${factCards}
+            </div>
+        `
+        : '';
+
+    return {
+        html: `${summaryBlock}${verificationOnlyBlock}`,
+        verdict: resolveAgentVerdict(parsed, data.verificatorResponses),
+    };
 }
 
-function createMessageBubble(role, html) {
+function createMessageBubble(role, html, bubbleStyle = '') {
     const isUser = role === 'user';
     const wrapper = document.createElement('div');
     wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
@@ -221,7 +372,7 @@ function createMessageBubble(role, html) {
     const bubble = document.createElement('div');
     bubble.className = isUser
         ? 'max-w-[85%] rounded-2xl rounded-br-md bg-indigo-600 px-4 py-2.5 text-sm text-white'
-        : 'max-w-full rounded-2xl rounded-bl-md px-1 py-1 text-sm';
+        : `max-w-full rounded-2xl rounded-bl-md border px-4 py-3 text-sm ${bubbleStyle || 'border-slate-700/80 bg-slate-800'}`;
 
     bubble.innerHTML = html;
     wrapper.appendChild(bubble);
@@ -301,10 +452,11 @@ export function initFactCheckChat() {
 
         try {
             const { data } = await window.axios.post(checkUrl, { fact });
+            const rendered = renderAgentResponse(data);
 
             typing.remove();
             messagesEl.appendChild(
-                createMessageBubble('agent', renderAgentResponse(data))
+                createMessageBubble('agent', rendered.html, getAgentBubbleStyle(rendered.verdict))
             );
         } catch (err) {
             typing.remove();
